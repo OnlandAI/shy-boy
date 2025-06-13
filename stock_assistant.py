@@ -9,12 +9,17 @@ def analyze_stock(symbol, save_dir="reports", history_dir="data"):
     print(f"🔍 正在分析: {symbol}")
 
     df = yf.download(symbol, period="6mo")
-    if df.empty:
-        print(f"⚠️ 無法取得 {symbol} 的資料")
+    if df.empty or "Close" not in df.columns:
+        print(f"⚠️ 無法取得 {symbol} 的有效股價資料")
         return
 
     df.reset_index(inplace=True)
+
     prophet_df = df[["Date", "Close"]].rename(columns={"Date": "ds", "Close": "y"})
+    if prophet_df["y"].isnull().all():
+        print(f"❌ {symbol} 沒有有效收盤資料")
+        return
+
     model = Prophet(daily_seasonality=True)
     model.fit(prophet_df)
 
@@ -32,12 +37,10 @@ def analyze_stock(symbol, save_dir="reports", history_dir="data"):
         forecast_val = None
         error = None
 
-    if prophet_df["y"].isnull().all():
-    print(f"❌ {symbol} 沒有有效股價資料")
-    return
-
     hist_df = pd.DataFrame([[yesterday, actual, forecast_val, error]],
                            columns=["date", "actual", "forecast", "error"])
+
+    os.makedirs(history_dir, exist_ok=True)
     hist_path = os.path.join(history_dir, f"{symbol}_actual_vs_forecast.csv")
     if os.path.exists(hist_path):
         prev = pd.read_csv(hist_path)
@@ -51,4 +54,4 @@ def analyze_stock(symbol, save_dir="reports", history_dir="data"):
         forecast.to_excel(writer, sheet_name="Forecast", index=False)
         hist_df.to_excel(writer, sheet_name="Error Log", index=False)
 
-    print(f"✅ 完成分析：{symbol}，已儲存報告至 {report_path}")
+    print(f"✅ 完成分析：{symbol}，報告儲存於 {report_path}")
