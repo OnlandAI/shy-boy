@@ -23,9 +23,18 @@ def analyze_stock(symbol, save_dir="reports", history_dir="data"):
 
     actual = df.iloc[-1]["Close"]
     yesterday = df.iloc[-1]["Date"]
-    forecast_row = forecast[forecast["ds"] == yesterday]
-    forecast_val = forecast_row["yhat"].values[0] if not forecast_row.empty else None
-    error = actual - forecast_val if forecast_val else None
+    forecast_row = forecast[forecast["ds"] == pd.to_datetime(yesterday)]
+
+    if not forecast_row.empty and "yhat" in forecast_row:
+        forecast_val = forecast_row["yhat"].values[0]
+        error = actual - forecast_val
+    else:
+        forecast_val = None
+        error = None
+
+    if prophet_df["y"].isnull().all():
+    print(f"❌ {symbol} 沒有有效股價資料")
+    return
 
     hist_df = pd.DataFrame([[yesterday, actual, forecast_val, error]],
                            columns=["date", "actual", "forecast", "error"])
